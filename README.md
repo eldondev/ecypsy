@@ -15,8 +15,8 @@ Ecypsy utilizes boto to interact with the amazon api, and therefore the amazon c
 Things to think about:
 * Ecypsy is currently deploying coreos stable. Hack get_image_id in instances.py to change that.
 * Hoping to include the following in the near future:
-  1 Some sort of decent networking mesh.
-  2 With the networking mesh, some sort of coordination.
+  1. Some sort of decent networking mesh.
+  2. With the networking mesh, some sort of coordination.
     * A lot of the current orchestration tools seem overblown. What is up with that?
     * Docker seems to be adding boatloads of their platform-y stuff. There is a lot of that in coreos, too, but maybe they won't push it too hard?
     * Rocket might be worth checking out.
