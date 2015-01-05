@@ -1,7 +1,7 @@
 import logging
 logging.basicConfig()
 logger = logging.getLogger("ecypsy")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 from ecypsy.region.instances import *
 import time
 while True:
