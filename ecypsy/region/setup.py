@@ -60,7 +60,7 @@ def setup_key(region):
     key_pair = connection.create_key_pair(keypair_name)
     with open(configdir + '%s.pem' % region, 'w') as keyfile:
         keyfile.write(key_pair.material)
-    return key.material
+    return key_pair.material
 
 def get_security_group(region, authorize=True):
     connection = regions[region]
@@ -68,22 +68,23 @@ def get_security_group(region, authorize=True):
     if sec_group and authorize:
         sec_group = sec_group.pop()
         logger.debug('Found security group for region %s' % str(region))
-        check_ssh_authorized(sec_group)
+        check_port_authorized(sec_group)
+        check_port_authorized(sec_group,'2200')
     return sec_group
 
-def check_ssh_authorized(sec_group):
-    ssh_rule = [rule for rule in sec_group.rules if rule.from_port == '22']
+def check_port_authorized(sec_group, port='22'):
+    ssh_rule = [rule for rule in sec_group.rules if rule.from_port == port]
     if ssh_rule:
         ssh_rule = ssh_rule.pop()
         if '0.0.0.0/0' in [str(source) for source in ssh_rule.grants]:
             return
     logger.debug('Authorizing ssh for region %s' % sec_group.region)
-    sec_group.authorize('tcp','22','22','0.0.0.0/0')
-            
+    sec_group.authorize('tcp',port,port,'0.0.0.0/0')
+
 def initialize_security_group(region):
     connection = regions[region]
     logger.debug('Creating security group for region %s' % str(region))
     sec_group = connection.create_security_group('ecypsy', 'Security group created by ecypsy')
-    check_ssh_authorized(sec_group)
+    check_port_authorized(sec_group)
 
 

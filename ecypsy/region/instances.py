@@ -30,7 +30,9 @@ def get_running_zones():
     for region in regions.keys():
         sec_group = get_security_group(region, authorize=False)
         if sec_group:
-            zones += [instance.placement for instance in sec_group.pop().instances() if not instance.state == 'terminated']
+            instances = sec_group.pop().instances()
+            [logger.info("Existing instance %s" % instance.public_dns_name) for instance in instances if not instance.state == 'terminated']
+            zones += [instance.placement for instance in instances if not instance.state == 'terminated']
     logger.info("Zones that already have instances: %s" % str(zones))
     return zones
 
@@ -79,5 +81,6 @@ def find_cheapest_zones(instance_type, count, running_zones=[]):
     return cheap_zone_prices # Give us zone objects from zone names
 
 def launch_instance(zone, key, sec_group, price, margin):
+    logger.info("Launching new instance in zone %s" % str(zone))
     regions[zone.region.name].request_spot_instances(instance_type=price.instance_type, price=(price.price + margin), placement = zone.name, security_groups=[sec_group.name], key_name=keypair_name, image_id=image_ids[zone.region.name])
     
