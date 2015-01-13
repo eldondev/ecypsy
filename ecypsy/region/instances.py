@@ -1,12 +1,13 @@
 import boto.ec2
 import logging
 
-from ecypsy.region.setup import regions, setup, get_security_group, keypair_name
+from ecypsy.region.setup import *
 
 logger = logging.getLogger(__name__)
 
 coreos_url = "http://stable.release.core-os.net/amd64-usr/current/coreos_production_ami_all.json"
 image_ids = {}
+global_instances = {}
 def get_image_ids():
     from urllib.request import urlopen
     from json import loads
@@ -28,34 +29,24 @@ def ensure_running_set(instance_type='t1.micro', count=3, margin=0.0002):
 def get_running_zones():
     zones = []
     for region in regions.keys():
-        sec_group = get_security_group(region, authorize=False)
+        sec_group = get_security_group(region)
         if sec_group:
             instances = sec_group.pop().instances()
-            [logger.info("Existing instance %s" % instance.public_dns_name) for instance in instances if not instance.state == 'terminated']
-            zones += [instance.placement for instance in instances if not instance.state == 'terminated']
+            for instance in instances:
+                if not instance.state == 'terminated':
+                    global_instances[instance.public_dns_name] = instance 
+                    zones += [instance.placement]
     logger.info("Zones that already have instances: %s" % str(zones))
     return zones
 
 def get_running_instances():
     instances = []
     for region in regions.keys():
-        sec_group = get_security_group(region, authorize=False)
+        sec_group = get_security_group(region)
         if sec_group:
             instances += [instance for instance in sec_group.pop().instances() if not instance.state == 'terminated']
     return instances
 
-
-def get_candidate_spot_prices(instance_type, exclude_zones):
-    spot_prices = []
-    zones = {}
-    for region in regions.values():
-        for zone in region.get_all_zones():
-            zones[zone.name] = zone
-            if not zone.name in exclude_zones:
-                spot_prices += region.get_spot_price_history(instance_type=instance_type, availability_zone=zone.name, max_results=1)
-    for spot_price in spot_prices:
-        spot_price.availability_zone = zones[ spot_price.availability_zone] # Get the real zone instead of just the name
-    return spot_prices
 
 def get_most_distributed_zones_for_price(spot_prices, count, running_zones):
     spot_prices.sort(key=lambda spot_price: spot_price.price)
@@ -70,7 +61,7 @@ def get_most_distributed_zones_for_price(spot_prices, count, running_zones):
             running_zones += [price.availability_zone.name]
     while len(selected) < count: # We didn't have enough different regions, just fill us up
         selected.add(prices_less_than_max_price.pop())
-    return list(selected)
+    return list(selected)[:count]
     
 def find_cheapest_zones(instance_type, count, running_zones=[]):
     if count < 1:
@@ -82,5 +73,7 @@ def find_cheapest_zones(instance_type, count, running_zones=[]):
 
 def launch_instance(zone, key, sec_group, price, margin):
     logger.info("Launching new instance in zone %s" % str(zone))
-    regions[zone.region.name].request_spot_instances(instance_type=price.instance_type, price=(price.price + margin), placement = zone.name, security_groups=[sec_group.name], key_name=keypair_name, image_id=image_ids[zone.region.name])
+    with open(configdir + 'user_data', 'rb') as user_data_file:
+        user_data=user_data_file.read()
+    regions[zone.region.name].request_spot_instances(instance_type=price.instance_type, price=(price.price + margin), placement = zone.name, security_groups=[sec_group.name], key_name=keypair_name, image_id=image_ids[zone.region.name],user_data=user_data)
     

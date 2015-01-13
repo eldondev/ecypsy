@@ -6,5 +6,8 @@ from ecypsy.region.instances import *
 import time
 while True:
     ensure_running_set()
-    time.sleep(300)
+    write_ssh_config(global_instances)
+    for dns, _ in global_instances.items():
+        logger.info("Host %s up" % dns)
+    time.sleep(600)
 
